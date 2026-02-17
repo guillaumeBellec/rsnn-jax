@@ -2,8 +2,9 @@ import jax
 import jax.numpy as jnp
 import jax.random as jr
 
+from dales_law import generate_signed_weight_matrix
 
-def make_network(key, n, n_input, K=1):
+def make_network(key, n, n_input, K, p0, use_signed_matrix):
     """Create network weights with synaptic delays.
 
     Returns:
@@ -12,7 +13,12 @@ def make_network(key, n, n_input, K=1):
         delays: (n, n) integer delay matrix in {1, ..., K}
     """
     k1, k2, k3 = jr.split(key, 3)
-    W = jr.normal(k1, (n, n)) / n
+
+    if use_signed_matrix:
+        neuron_sign = (jnp.arange(n) > 0.2 * n) * 2 - 1
+        W = generate_signed_weight_matrix(k1, neuron_sign, n, p0)
+    else:
+        W = jr.normal(k1, (n, n)) / n
     W_in = jr.normal(k2, (n, n_input)) / n_input
 
     # Random delays per connection, uniform in {1, ..., K}
@@ -88,13 +94,15 @@ if __name__ == "__main__":
     v_thr = 0.7
     dt = 0.5 # time in milliseconds
     tau_min, tau_max = 10.0, 20.0 # time in milliseconds
+    p0=0.1
+    signed = True
 
     key = jr.PRNGKey(0)
     key, k_tau_m = jr.split(key)
     tau = tau_min + jr.uniform(k_tau_m, shape=(n,)) * (tau_max - tau_min)
     a = jnp.exp(-dt / tau)
 
-    W_kernel, W_in, delays = make_network(key, n, n_input, K=K)
+    W_kernel, W_in, delays = make_network(key, n, n_input, K=K, p0=p0, use_signed_matrix=signed)
     batch_size = 8
     v0 = jnp.zeros((batch_size, n))
 
