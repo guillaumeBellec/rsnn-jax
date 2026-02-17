@@ -1,3 +1,4 @@
+import jax
 import jax.numpy as jnp
 import jax.random as jr
 
@@ -24,7 +25,7 @@ def make_network(key, n, n_input, K=1):
     return W_kernel, W_in, delays
 
 
-def step(W_kernel, W_in, v, spike_buf, x, a, v_thr):
+def step(W_kernel, W_in, v, spike_buf, x, a, v_thr, dampening_factor=1.0):
     """One LIF step with synaptic delays.
 
     Args:
@@ -34,7 +35,10 @@ def step(W_kernel, W_in, v, spike_buf, x, a, v_thr):
         spike_buf: (K, n) buffer of past spikes, spike_buf[0] = z(t-1), spike_buf[K-1] = z(t-K)
         x: (n_input,) external input
     """
+    # Surrogate gradient: forward pass uses Heaviside, backward uses sigmoid
     z = (v >= v_thr).astype(v.dtype)
+    z_back = jax.nn.sigmoid((v - v_thr) * dampening_factor)
+    z = jax.lax.stop_gradient(z - z_back) + z_back
 
     # Recurrent input via delayed spikes: sum_k W_kernel[:, :, k] @ spike_buf[k]
     rec_input = jnp.einsum("ijk,kj->i", W_kernel, spike_buf)
@@ -81,12 +85,15 @@ if __name__ == "__main__":
     n_input = 1
     n_steps = 1000
     K = 10  # max synaptic delay in timesteps
-    tau = 15.0
     v_thr = 0.7
-    dt = 1.0
-    a = jnp.exp(-dt / tau)
+    dt = 0.5 # time in milliseconds
+    tau_min, tau_max = 10.0, 20.0 # time in milliseconds
 
     key = jr.PRNGKey(0)
+    key, k_tau_m = jr.split(key)
+    tau = tau_min + jr.uniform(k_tau_m, shape=(n,)) * (tau_max - tau_min)
+    a = jnp.exp(-dt / tau)
+
     W_kernel, W_in, delays = make_network(key, n, n_input, K=K)
     batch_size = 8
     v0 = jnp.zeros((batch_size, n))
