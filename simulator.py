@@ -82,7 +82,7 @@ if __name__ == "__main__":
     n_steps = 1000
     K = 10  # max synaptic delay in timesteps
     tau = 15.0
-    v_thr = 0.2
+    v_thr = 0.7
     dt = 1.0
     a = jnp.exp(-dt / tau)
 
@@ -109,8 +109,10 @@ if __name__ == "__main__":
 
     v_final, spikes = simulate_batch(W_kernel, W_in, v0, inputs, a, v_thr)
     print(f"spikes shape: {spikes.shape}")  # (batch, n_steps, n)
-    print(f"total spikes per trial: {spikes.sum(axis=(1, 2))}")
-    print(f"mean firing rate: {spikes.mean() * 1000 / dt:.1f} Hz")
+    T_sec = n_steps * dt / 1000.0
+    rates_per_trial = spikes.sum(axis=(1, 2)) / (n * T_sec)  # Hz per trial
+    print(f"firing rate per trial (Hz): {rates_per_trial}")
+    print(f"mean firing rate: {rates_per_trial.mean():.1f} Hz")
 
     import matplotlib.pyplot as plt
 
