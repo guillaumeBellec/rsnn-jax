@@ -94,7 +94,7 @@ if __name__ == "__main__":
     v_thr = 0.7
     dt = 0.5 # time in milliseconds
     tau_min, tau_max = 10.0, 20.0 # time in milliseconds
-    p0=0.1
+    p0 = 0.1
     signed = True
 
     key = jr.PRNGKey(0)
